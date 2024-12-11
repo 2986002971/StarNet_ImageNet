@@ -77,7 +77,7 @@ StarNet的主要特点：
 ## 使用预训练模型
 
 ```python
-from backbone.StarNet import StarNet50
+from StarNet import StarNet50
 
 # 加载预训练模型
 model = StarNet50()
@@ -94,11 +94,11 @@ model.load_state_dict(checkpoint)
 ## 注意事项
 
 1. 显存使用
-   - batch_size=128时约需要12GB显存
+   - batch_size=128时约需要22GB显存
    - 如果显存不足，可以减小batch_size
 
 2. 训练时间
-   - 单卡训练300epochs约需要7-10天
+   - 单卡训练100epochs约需要2-3天
    - 建议使用较大的batch_size以提高训练效率
 
 3. 数据加载
