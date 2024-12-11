@@ -71,8 +71,8 @@ StarNet的主要特点：
 ## 预训练模型
 
 训练完成后，模型权重将保存在：
-- `checkpoints/checkpoint.pth.tar`: 最新的checkpoint
-- `checkpoints/model_best.pth.tar`: 验证集上性能最好的模型
+- `checkpoints/checkpoint.pth`: 最新的checkpoint
+- `checkpoints/model_best.pth`: 验证集上性能最好的模型
 
 ## 使用预训练模型
 
@@ -81,8 +81,8 @@ from backbone.StarNet import StarNet50
 
 # 加载预训练模型
 model = StarNet50()
-checkpoint = torch.load('checkpoints/model_best.pth.tar')
-model.load_state_dict(checkpoint['state_dict'])
+checkpoint = torch.load('checkpoints/model_best.pth')
+model.load_state_dict(checkpoint)
 ```
 
 ## 性能指标
@@ -109,10 +109,13 @@ model.load_state_dict(checkpoint['state_dict'])
 
 如果您使用了这个预训练模型，请引用原始论文：
 ```
-@article{starnet2024,
-  title={Rewrite the Stars: Learning a Totally New Vision Backbone from Scratch},
-  author={...},
-  journal={arXiv preprint arXiv:2403.19967},
-  year={2024}
+@misc{ma2024rewritestars,
+      title={Rewrite the Stars}, 
+      author={Xu Ma and Xiyang Dai and Yue Bai and Yizhou Wang and Yun Fu},
+      year={2024},
+      eprint={2403.19967},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2403.19967}, 
 }
 ```
