@@ -36,7 +36,7 @@ pip install torch torchvision
 基本训练命令：
 ```bash
 python train.py /path/to/imagenet \
-    --batch-size 256 \
+    --batch-size 128 \
     --lr 0.001 \
     --epochs 100 \
     --workers 16 \
