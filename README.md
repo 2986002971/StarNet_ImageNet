@@ -35,11 +35,11 @@ pip install torch torchvision
 
 基本训练命令：
 ```bash
-python train_starnet.py /path/to/imagenet \
-    --batch-size 128 \
+python train.py /path/to/imagenet \
+    --batch-size 256 \
     --lr 0.001 \
-    --epochs 300 \
-    --workers 4 \
+    --epochs 100 \
+    --workers 16 \
     --save-dir checkpoints
 ```
 

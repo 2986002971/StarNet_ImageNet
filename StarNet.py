@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -68,14 +69,14 @@ class StarBlock(nn.Module):
 
 
 class StarNet(nn.Module):
-    def __init__(self, block=StarBlock, layers=[3, 4, 6, 3]):
+    def __init__(self, block=StarBlock, layers=[3, 4, 6, 3], num_classes=1000):
         super().__init__()
         self.inplanes = 64
 
         # 保持与ResNet相同的stem
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU6(inplace=True)
+        self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         # 四个stage，与ResNet保持一致
@@ -83,6 +84,10 @@ class StarNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+
+        # 添加分类头
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         # 初始化权重
         for m in self.modules():
@@ -125,14 +130,19 @@ class StarNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
+        # 添加分类头的前向传播
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+
         return x
 
 
-def StarNet50(pretrained=False):
+def StarNet50(pretrained=False, num_classes=1000):
     """
     构建StarNet-50模型，保持与ResNet50相同的结构
     """
-    model = StarNet(StarBlock, [3, 4, 6, 3])
+    model = StarNet(StarBlock, [3, 4, 6, 3], num_classes=num_classes)
     return model
 
 
