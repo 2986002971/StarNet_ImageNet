@@ -50,6 +50,15 @@ def train_model(args):
     # 创建模型
     model = StarNet50().cuda()
 
+    # 如果指定了检查点文件，从检查点恢复模型权重
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print(f"=> 加载检查点 '{args.resume}'")
+            model.load_state_dict(torch.load(args.resume))
+            print("=> 成功加载模型权重")
+        else:
+            print(f"=> 未找到检查点文件: '{args.resume}'")
+
     # 定义损失函数和优化器
     criterion = nn.CrossEntropyLoss().cuda()
     optimizer = optim.AdamW(
@@ -264,6 +273,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save-dir", default="checkpoints", type=str, help="path to save checkpoints"
+    )
+    parser.add_argument(
+        "--resume",
+        default="",
+        type=str,
+        metavar="PATH",
+        help="从检查点恢复模型权重的路径 (默认: none)",
     )
 
     args = parser.parse_args()
