@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import torch
@@ -117,9 +118,19 @@ class FullModel(nn.Module):
         return x
 
 
-def main():
-    # ImageNet验证集路径
-    val_dir = "../imagenet/val"  # 请修改为实际路径
+if __name__ == "__main__":
+    # 新增参数解析
+    parser = argparse.ArgumentParser(description="ImageNet Evaluator")
+    parser.add_argument(
+        "--val_dir",
+        type=str,
+        default="../imagenet/val",
+        help="ImageNet validation directory",
+    )
+    args = parser.parse_args()
+
+    # 使用解析的val_dir
+    val_dir = args.val_dir
 
     # 创建评估器
     evaluator = ImageNetEvaluator(val_dir)
@@ -148,7 +159,3 @@ def main():
         f"{resnet_results['Top-5 Accuracy']:.2f}%{' '*4} "
         f"{resnet_results['Evaluation Time']:.1f}"
     )
-
-
-if __name__ == "__main__":
-    main()
