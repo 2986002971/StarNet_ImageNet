@@ -8,13 +8,87 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from backbone.ResNet import Backbone_ResNet50
-from backbone.StarNet import Backbone_StarNetS4
+from backbone.StarNet import StarNetBackbone
+
+
+class StarNet(nn.Module):
+    """完整的StarNet模型，包含分类头"""
+
+    def __init__(
+        self,
+        base_dim=32,
+        depths=[3, 3, 12, 5],
+        mlp_ratio=4,
+        drop_path_rate=0.0,
+        num_classes=1000,
+    ):
+        super().__init__()
+        # backbone
+        self.backbone = StarNetBackbone(base_dim, depths, mlp_ratio, drop_path_rate)
+
+        # 分类头
+        self.norm = nn.BatchNorm2d(base_dim * 2 ** (len(depths) - 1))
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.head = nn.Linear(base_dim * 2 ** (len(depths) - 1), num_classes)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, (nn.Linear, nn.Conv2d)):
+            nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, (nn.LayerNorm, nn.BatchNorm2d)):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    def forward(self, x):
+        features = self.backbone(x)
+        x = features[-1]  # 取最后一个特征图
+        x = self.norm(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.head(x)
+        return x
+
+
+def load_starnet():
+    """加载完整的预训练StarNet S4"""
+    model = StarNet(base_dim=32, depths=[3, 3, 12, 5], mlp_ratio=4)
+
+    # 加载预训练权重
+    checkpoint = torch.hub.load_state_dict_from_url(
+        url="https://github.com/ma-xu/Rewrite-the-Stars/releases/download/checkpoints_v1/starnet_s4.pth.tar",
+        map_location="cpu",
+    )
+
+    if "state_dict" in checkpoint:
+        state_dict = checkpoint["state_dict"]
+    else:
+        state_dict = checkpoint
+
+    # 处理可能的module.前缀
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith("module."):
+            k = k[7:]  # 移除"module."前缀
+        new_state_dict[k] = v
+
+    # 加载权重
+    model.load_state_dict(new_state_dict)
+    return model
+
+
+def load_resnet():
+    """加载完整的预训练ResNet50"""
+    import torchvision.models as models
+
+    model = models.resnet50(pretrained=True)
+    return model
 
 
 class ImageNetEvaluator:
     def __init__(self, val_dir, batch_size=256, num_workers=8):
-        # ImageNet验证集预处理
         self.val_transform = transforms.Compose(
             [
                 transforms.Resize(256),
@@ -26,10 +100,8 @@ class ImageNetEvaluator:
             ]
         )
 
-        # 直接加载验证集
         self.val_dataset = datasets.ImageFolder(val_dir, self.val_transform)
 
-        # 打印一些数据集信息以验证
         print(
             f"Found {len(self.val_dataset)} images in {len(self.val_dataset.classes)} classes"
         )
@@ -64,7 +136,6 @@ class ImageNetEvaluator:
 
                 outputs = model(images)
 
-                # Top-1 and Top-5 accuracy
                 _, pred = outputs.topk(5, 1, True, True)
                 pred = pred.t()
                 correct = pred.eq(labels.view(1, -1).expand_as(pred))
@@ -82,46 +153,6 @@ class ImageNetEvaluator:
             "Top-5 Accuracy": acc_5,
             "Evaluation Time": eval_time,
         }
-
-
-class FullModel(nn.Module):
-    """包装backbone并添加分类头"""
-
-    def __init__(self, backbone_fn, pretrained=True, num_classes=1000):
-        super().__init__()
-        # 获取backbone的各个部分
-        self.div_2, self.div_4, self.div_8, self.div_16, self.div_32 = backbone_fn(
-            pretrained=pretrained
-        )
-
-        # 获取最后一层的通道数
-        with torch.no_grad():
-            dummy = torch.randn(1, 3, 224, 224)
-            dummy = self.div_2(dummy)
-            dummy = self.div_4(dummy)
-            dummy = self.div_8(dummy)
-            dummy = self.div_16(dummy)
-            dummy = self.div_32(dummy)
-            last_channels = dummy.shape[1]
-
-        # 添加分类头
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(last_channels, num_classes)
-
-        # 初始化fc层
-        nn.init.normal_(self.fc.weight, std=0.01)
-        nn.init.constant_(self.fc.bias, 0)
-
-    def forward(self, x):
-        x = self.div_2(x)
-        x = self.div_4(x)
-        x = self.div_8(x)
-        x = self.div_16(x)
-        x = self.div_32(x)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
 
 
 if __name__ == "__main__":
@@ -143,12 +174,12 @@ if __name__ == "__main__":
 
     # 评估StarNet S4
     print("\nEvaluating StarNet S4...")
-    starnet = FullModel(Backbone_StarNetS4, pretrained=True)
+    starnet = load_starnet()
     starnet_results = evaluator.evaluate_model(starnet, "StarNet S4")
 
     # 评估ResNet50
     print("\nEvaluating ResNet50...")
-    resnet = FullModel(Backbone_ResNet50, pretrained=True)
+    resnet = load_resnet()
     resnet_results = evaluator.evaluate_model(resnet, "ResNet50")
 
     # 打印结果对比
