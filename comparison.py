@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from backbone.StarNet import StarNetBackbone
+from backbone.StarNet import Block, ConvBN
 
 
 class StarNet(nn.Module):
@@ -23,8 +23,31 @@ class StarNet(nn.Module):
         num_classes=1000,
     ):
         super().__init__()
-        # backbone
-        self.backbone = StarNetBackbone(base_dim, depths, mlp_ratio, drop_path_rate)
+        self.in_channel = base_dim
+
+        # stem layer
+        self.stem = nn.Sequential(
+            ConvBN(3, self.in_channel, kernel_size=3, stride=2, padding=1), nn.ReLU6()
+        )
+
+        # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
+
+        # build stages
+        self.stages = nn.ModuleList()
+        cur = 0
+        for i_layer in range(len(depths)):
+            embed_dim = base_dim * 2**i_layer
+            # 下采样层
+            down_sampler = ConvBN(self.in_channel, embed_dim, 3, 2, 1)
+            self.in_channel = embed_dim
+            # stage中的blocks
+            blocks = [
+                Block(self.in_channel, mlp_ratio, dpr[cur + i])
+                for i in range(depths[i_layer])
+            ]
+            cur += depths[i_layer]
+            self.stages.append(nn.Sequential(down_sampler, *blocks))
 
         # 分类头
         self.norm = nn.BatchNorm2d(base_dim * 2 ** (len(depths) - 1))
@@ -43,8 +66,9 @@ class StarNet(nn.Module):
             nn.init.constant_(m.weight, 1.0)
 
     def forward(self, x):
-        features = self.backbone(x)
-        x = features[-1]  # 取最后一个特征图
+        x = self.stem(x)
+        for stage in self.stages:
+            x = stage(x)
         x = self.norm(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
