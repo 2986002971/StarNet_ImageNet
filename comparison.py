@@ -26,8 +26,14 @@ class ImageNetEvaluator:
             ]
         )
 
-        # 加载ImageNet验证集
+        # 直接加载验证集
         self.val_dataset = datasets.ImageFolder(val_dir, self.val_transform)
+
+        # 打印一些数据集信息以验证
+        print(
+            f"Found {len(self.val_dataset)} images in {len(self.val_dataset.classes)} classes"
+        )
+        print(f"First few classes: {self.val_dataset.classes[:5]}")
 
         self.val_loader = DataLoader(
             self.val_dataset,
